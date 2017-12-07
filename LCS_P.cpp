@@ -1,19 +1,9 @@
 ////Partner Work: Project 2
 //Elia Deppe & Tatiana Nikolaeva
-
 //CMSC 441
 //Professor Marron
 
-/*
-!!!NOTE (Elia)!!!
-    This was created while using Codeblocks on a Windows machine. When testing the
-    project I used a .exe file and 2 text file inputs on the command line. That is why
-    the main uses arguments file.open(argv[1]) and file.open(argv[2]); I was unsure of how to adjust
-    this to ensure it to read the correct position for the text file for machines running Linux
-    or Mac or if someone wished to output to a specific file using terminal arguments.
-    Please adjust it to the correct position if necessary.
-!!!END NOTE!!!
-*/
+//This file reads in two text files without needing the length of the file itself.
 
 //includes
 #include <iostream>
@@ -28,14 +18,18 @@
 
 using namespace std;
 
+//function declaration
+//create_array
+//void, creates dynamic 2d array and fills it with -1
 void create_array(int **array, const int len2, const int i);
 
-//function declaration
 //LCS
 //takes in a dynamic 2d array, 2 strings received from the text files, and their
 //  respective lengths
 int LCS(int **array, string s1, string s2, const int len1, const int len2);
 
+//work_row
+//works the current row given by i
 void work_row(int **array, string s1, string s2, const int len2, const int i);
 
 //main
@@ -78,10 +72,12 @@ int main(int argc, char *argv[]) {
     const int len2 = s2.length();        //length of string 2
     int **array = new int *[(len1 + 1)];      //2D dynamic array of size
 
+    //I understood this better for some reason. Essentially a parallel 
+    //  implementation to create the dynamic array and then fill with -1
     #pragma omp parallel
     {
         #pragma omp single
-        for(int i = 0; i < (len1 + 1); i++) {      //  (len1 + 1) * (len2 + 1)
+        for(int i = 0; i < (len1 + 1); i++) {      // (len1 + 1) * (len2 + 1)
             #pragma omp task
             create_array(array, len2, i);
         }
@@ -92,7 +88,7 @@ int main(int argc, char *argv[]) {
     cout << "Length of LCS is: " << LCS(array, s1, s2, len1, len2) << "\n";
     double t = omp_get_wtime() - t0;
     cout << "Total time: " << t << "\n\n";
-
+    
     //delete the array
     for(int i = 0; i < (len1 + 1); i++) {
         delete [] array[i];
@@ -102,6 +98,8 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+//create_array
+//  allocates space for that block and then fills with -1
 void create_array(int **array, const int len2, const int i) {
     array[i] = new int[(len2+1)];
     for(int j = 0; j < (len2 + 1); j++) {
@@ -115,10 +113,10 @@ int LCS(int **array, string s1, string s2, const int len1, const int len2) {
     #pragma omp parallel
     {
         #pragma omp single
-        for(int i = 0; i < len1 + 1; i++) {        //two for loops, create this graph by columns
-            array[i][0] = 0;
+        for(int i = 0; i < len1 + 1; i++) {
+            array[i][0] = 0;                        //set first position to 0 as a bit of a headstart for that thread
             #pragma omp task
-            work_row(array, s1, s2, len2, i);
+            work_row(array, s1, s2, len2, i);       //spawn the thread to work on that row
         }
     }
     
@@ -130,7 +128,7 @@ void work_row(int **array, string s1, string s2, const int len2, const int i) {
     for(int j = 1; j < len2 + 1; j++) {
         if(i != 0) {
             if(array[i-1][j] == -1) {
-                j--; //stall
+                j--; //the thread working on row i - 1 is not ahead of this current thread, so we must wait
             }
             else {
                 if(j == 0) {
@@ -144,8 +142,8 @@ void work_row(int **array, string s1, string s2, const int len2, const int i) {
                 }
            }
         }
-	else {
-	    array[i][j] = 0;
-	}
+	    else {
+	        array[i][j] = 0;    //in the case we are at i = 0, we can't look at i - 1 (leads to seg fault)
+	    }
     }
 }
